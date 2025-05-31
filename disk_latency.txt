@@ -1,0 +1,55 @@
+---CHECK IO LATENCY
+clear
+$cntr = 0 
+
+# replace with your server name, unless local computer
+$serverName = $env:COMPUTERNAME
+
+# replace with your volume name - C: , D:, etc
+$volumeName = "_total"
+
+$Counters = @(("\\$serverName" +"\LogicalDisk($volumeName)\Avg. disk sec/transfer"))
+
+$disksectransfer = Get-Counter -Counter $Counters -MaxSamples 1 
+$avg = $($disksectransfer.CounterSamples | Select-Object CookedValue).CookedValue
+
+Get-Counter -Counter $Counters -SampleInterval 2 -MaxSamples 30 | ForEach-Object {
+$_.CounterSamples | ForEach-Object {
+   [pscustomobject]@{
+      TimeStamp = $_.TimeStamp
+      Path = $_.Path
+      Value = ([Math]::Round($_.CookedValue, 5))
+         turn = $cntr = $cntr +1
+         running_avg = [Math]::Round(($avg = (($_.CookedValue + $avg) / 2)), 5)  
+         
+   } | Format-Table
+     }
+   }
+
+   write-host "Final_Running_Average: $([Math]::Round( $avg, 5)) sec/transfer`n"
+  
+   if ($avg -gt 0.01)
+   {
+     Write-Host "There ARE indications of slow I/O performance on your system"
+   }
+   else
+   {
+     Write-Host "There is NO indication of slow I/O performance on your system"
+   }
+   
+---CHECK CAPACITY REACH
+clear
+$serverName = $env:COMPUTERNAME
+$Counters = @(
+   ("\\$serverName" +"\LogicalDisk(*)\Disk Bytes/sec"),
+   ("\\$serverName" +"\LogicalDisk(*)\Disk Read Bytes/sec"),
+   ("\\$serverName" +"\LogicalDisk(*)\Disk Write Bytes/sec")
+   )
+Get-Counter -Counter $Counters -SampleInterval 2 -MaxSamples 20 | ForEach-Object  {
+$_.CounterSamples | ForEach-Object       {
+   [pscustomobject]@{
+      TimeStamp = $_.TimeStamp
+      Path = $_.Path
+      Value = ([Math]::Round($_.CookedValue, 3)) }
+    }
+ }
